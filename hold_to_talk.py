@@ -44,17 +44,42 @@ TEXT = {
     'silence': ('(silence: nothing heard on this microphone)', '(silencio: nao ouvi nada nesse microfone)'),
     'error': ('error:', 'erro:'),
 }
-PHANTOM = r'amara\.org|legendas pela comunidade|obrigad[oa] por assistir|inscreva-se|thanks? for watching|subscribe'
+PHANTOM = r'amara\.org|legendas pela comunidade|obrigad[oa] por assistir|inscreva-se|thanks? for watching|subscribe|^\W*context\s*:|^\W*#+\W*$'
 
 
 def t(name):
     return TEXT[name][1 if PT else 0]
 
 
+def no_quick_edit():
+    try:
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        handle = kernel.GetStdHandle(-10)
+        mode = ctypes.c_uint32()
+        if kernel.GetConsoleMode(handle, ctypes.byref(mode)):
+            kernel.SetConsoleMode(handle, (mode.value & ~0x0040 & ~0x0010) | 0x0080)
+    except Exception:
+        pass
+
+
+def is_phantom(text):
+    if re.search(PHANTOM, text, re.I):
+        return True
+    if WORDS:
+        words = re.sub(r'\W+', ' ', WORDS.lower()).strip()
+        heard = re.sub(r'\W+', ' ', text.lower()).strip()
+        if len(heard) >= 15 and (heard in words or words[:40] in heard):
+            return True
+    return False
+
+
 def stop(name):
     winsound.Beep(300, 400)
     sys.exit(t(name))
 
+
+no_quick_edit()
 
 if not os.environ.get('OPENAI_API_KEY'):
     stop('nokey')
@@ -112,7 +137,7 @@ def transcribe(audio):
 
 def type_text(text):
     time.sleep(0.15)
-    keyboard.write(text, delay=0.005)
+    keyboard.write(text, delay=0.01, exact=True)
     pyperclip.copy(text)
 
 
@@ -131,7 +156,7 @@ def released():
     winsound.Beep(600, 80)
     try:
         text = transcribe(audio)
-        if text and not re.search(PHANTOM, text, re.I):
+        if text and not is_phantom(text):
             print('>', text, flush=True)
             type_text(text + ' ')
     except Exception as error:
