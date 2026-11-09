@@ -374,6 +374,13 @@ def button():
         x, y = (int(v) for v in open(BUTTON_POS).read().split())
     except Exception:
         x, y = root.winfo_screenwidth() - 90, root.winfo_screenheight() - 140
+    try:
+        # A position saved on another machine may land off every monitor here: fall back to the corner.
+        point = ctypes.c_longlong(((x + 32) & 0xFFFFFFFF) | (((y + 32) & 0xFFFFFFFF) << 32))
+        if not user32.MonitorFromPoint(point, 0):
+            x, y = root.winfo_screenwidth() - 90, root.winfo_screenheight() - 140
+    except Exception:
+        pass
     root.geometry('64x64+%d+%d' % (x, y))
     canvas = tk.Canvas(root, width=64, height=64, highlightthickness=0, bg='#202020', cursor='hand2')
     canvas.pack()
